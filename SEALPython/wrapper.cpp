@@ -1,5 +1,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include "seal/base64.h"
 #include "seal/bigpoly.h"
 #include "seal/bigpolyarray.h"
 #include "seal/biguint.h"
@@ -160,7 +161,28 @@ PYBIND11_MODULE(seal, m) {
         "Allocates enough memory to accommodate the backing array of a ciphertext with given capacity")
     .def("reserve", (void (Ciphertext::*)(const EncryptionParameters &, int, const MemoryPoolHandle &)) &Ciphertext::reserve,
         "Allocates enough memory to accommodate the backing array of a ciphertext with given capacity")
-    .def("size", &Ciphertext::size, "Returns the capacity of the allocation");
+    .def("size", &Ciphertext::size, "Returns the capacity of the allocation")
+    .def(py::pickle(
+        [](const Ciphertext &c) {
+            std::stringstream output(std::ios::binary | std::ios::out);
+            c.save(output);
+            std::string cipherstr = output.str();
+            std::string base64_encoded_cipher = base64_encode(reinterpret_cast<const unsigned char*>(cipherstr.c_str()), cipherstr.length());
+            return py::make_tuple(base64_encoded_cipher);
+        },
+        [](py::tuple t) {
+            if (t.size() != 1)
+                throw std::runtime_error("(Pickle) Invalid input tuple!");
+
+            Ciphertext c = Ciphertext();
+            std::string cipherstr_encoded = t[0].cast<std::string>();
+            std::string cipherstr_decoded = base64_decode(cipherstr_encoded);
+            std::stringstream input(std::ios::binary | std::ios::in);
+            input.str(cipherstr_decoded);
+            c.load(input);
+            return c;
+        }
+    ));
 
   py::class_<Decryptor>(m, "Decryptor")
     .def(py::init<const SEALContext &, const SecretKey &>())
@@ -454,7 +476,33 @@ PYBIND11_MODULE(seal, m) {
      .def("poly_modulus", (const BigPoly & (SEALContext::*)()) &SEALContext::poly_modulus, "Returns a constant reference to the polynomial modulus")
      .def("plain_modulus", (const SmallModulus & (SEALContext::*)()) &SEALContext::plain_modulus, "Returns a constant reference to the plaintext modulus")
      .def("qualifiers", (EncryptionParameterQualifiers (SEALContext::*)()) &SEALContext::qualifiers,
-        "Returns a copy of EncryptionParameterQualifiers corresponding to the current encryption parameters");
+        "Returns a copy of EncryptionParameterQualifiers corresponding to the current encryption parameters")
+        .def(py::pickle(
+        [](const SEALContext &context) {
+            EncryptionParameters parms_ = context.parms();
+
+            std::stringstream output(std::ios::binary | std::ios::out);
+            parms_.save(output);
+            std::string cipherstr = output.str();
+            std::string base64_encoded_cipher = base64_encode(reinterpret_cast<const unsigned char*>(cipherstr.c_str()), cipherstr.length());
+            return py::make_tuple(base64_encoded_cipher);
+        },
+        [](py::tuple t) {
+            if (t.size() != 1)
+                throw std::runtime_error("(Pickle) Invalid input tuple!");
+
+            /* Create a new C++ instance */
+            EncryptionParameters parms_ = EncryptionParameters();
+            std::string cipherstr_encoded = t[0].cast<std::string>();
+            std::string cipherstr_decoded = base64_decode(cipherstr_encoded);
+            std::stringstream input(std::ios::binary | std::ios::in);
+            input.str(cipherstr_decoded);
+            parms_.load(input);
+
+            SEALContext context(parms_);
+            return context;
+        }
+    ));
 
   py::class_<SmallModulus>(m, "SmallModulus")
       .def(py::init<>())
