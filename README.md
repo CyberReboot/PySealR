@@ -2,6 +2,7 @@
 Using PySEAL library to implement a Machine Learning algorithm which can operate on homomorphically encrypted data.
 
 
+# PySEAL
 This repository is a proof of concept for adding a Python wrapper to the
 (Simple Encrypted Arithmetic Library (SEAL))[http://sealcrypto.org/], a homomorphic encryption library,
 developed by researchers in the Cryptography Research Group at Microsoft Research. Currently, this uses
