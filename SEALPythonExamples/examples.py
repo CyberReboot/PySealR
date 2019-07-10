@@ -2,6 +2,8 @@ import time
 import random
 import pickle
 import threading
+import numpy as np
+import pandas as pd
 import seal
 from seal import ChooserEvaluator, \
 	Ciphertext, \
@@ -249,11 +251,11 @@ def example_basics_i():
 	decryptor = Decryptor(context, secret_key)
 
 	# We start by encoding two integers as plaintext polynomials.
-	value1 = 5;
+	value1 = 55;
 	plain1 = encoder.encode(value1);
 	print("Encoded " + (str)(value1) + " as polynomial " + plain1.to_string() + " (plain1)")
 
-	value2 = -7;
+	value2 = -79;
 	plain2 = encoder.encode(value2);
 	print("Encoded " + (str)(value2) + " as polynomial " + plain2.to_string() + " (plain2)")
 

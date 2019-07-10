@@ -1,7 +1,7 @@
 #
 # Container to build Linux SEAL libraries, python wrapper, and examples
 #
-FROM ubuntu:17.10
+FROM ubuntu:18.04
 MAINTAINER Todd Stavish <toddstavish@gmail.com>
 
 # Install binary dependencies

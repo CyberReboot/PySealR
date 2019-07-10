@@ -1,3 +1,6 @@
 pybind11
 cppimport
 jupyter
+numpy
+pandas
+scikit-learn
