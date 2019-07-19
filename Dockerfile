@@ -34,6 +34,7 @@ RUN make
 # Build SEAL Python wrapper
 COPY /SEALPython /SEAL/SEALPython
 COPY /SEALPythonExamples /SEAL/SEALPythonExamples
+COPY /Social_Network_Ads.csv /app/Social_Network_Ads.csv
 WORKDIR /SEAL/SEALPython
 RUN pip3 install --upgrade pip
 RUN pip3 install setuptools

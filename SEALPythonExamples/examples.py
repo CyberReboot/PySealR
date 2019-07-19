@@ -4,6 +4,7 @@ import pickle
 import threading
 import numpy as np
 import pandas as pd
+import math
 import seal
 from seal import ChooserEvaluator, \
 	Ciphertext, \
@@ -23,6 +24,131 @@ from seal import ChooserEvaluator, \
 	ChooserEncoder, \
 	ChooserEvaluator, \
 	ChooserPoly
+
+def splitDataset(dataset, splitRatio):
+	trainSize = int(len(dataset) * splitRatio)
+	trainSet = []
+	copy = list(dataset)
+	while len(trainSet) < trainSize:
+		index = random.randrange(len(copy))
+		trainSet.append(copy.pop(index))
+	return [trainSet, copy]
+
+def splitDataset(dataset, splitRatio):
+	trainSize = int(len(dataset) * splitRatio)
+	trainSet = []
+	copy = list(dataset)
+	while len(trainSet) < trainSize:
+		index = random.randrange(len(copy))
+		trainSet.append(copy.pop(index))
+	return [trainSet, copy]
+
+def separateByClass(dataset):
+	separated = {}
+	for i in range(len(dataset)):
+		vector = dataset[i]
+		if (vector[-1] not in separated):
+			separated[vector[-1]] = []
+		separated[vector[-1]].append(vector)
+	return separated
+ 
+def mean(numbers):
+	return sum(numbers)/float(len(numbers))
+ 
+def stdev(numbers):
+	avg = mean(numbers)
+	variance = sum([pow(x-avg,2) for x in numbers])/float(len(numbers)-1)
+	return math.sqrt(variance)
+ 
+def summarize(dataset):
+	summaries = [(mean(attribute), stdev(attribute)) for attribute in zip(*dataset)]
+	del summaries[-1]
+	return summaries
+ 
+def summarizeByClass(dataset):
+	separated = separateByClass(dataset)
+	summaries = {}
+	for classValue, instances in separated.iteritems():
+		summaries[classValue] = summarize(instances)
+	return summaries
+ 
+def calculateProbability(x, mean, stdev):
+	exponent = math.exp(-(math.pow(x-mean,2)/(2*math.pow(stdev,2))))
+	return (1 / (math.sqrt(2*math.pi) * stdev)) * exponent
+ 
+def calculateClassProbabilities(summaries, inputVector):
+	probabilities = {}
+	for classValue, classSummaries in summaries.iteritems():
+		probabilities[classValue] = 1
+		for i in range(len(classSummaries)):
+			mean, stdev = classSummaries[i]
+			x = inputVector[i]
+			probabilities[classValue] *= calculateProbability(x, mean, stdev)
+	return probabilities
+			
+def predict(summaries, inputVector):
+	probabilities = calculateClassProbabilities(summaries, inputVector)
+	bestLabel, bestProb = None, -1
+	for classValue, probability in probabilities.iteritems():
+		if bestLabel is None or probability > bestProb:
+			bestProb = probability
+			bestLabel = classValue
+	return bestLabel
+ 
+def getPredictions(summaries, testSet):
+	predictions = []
+	for i in range(len(testSet)):
+		result = predict(summaries, testSet[i])
+		predictions.append(result)
+	return predictions
+ 
+def getAccuracy(testSet, predictions):
+	correct = 0
+	for i in range(len(testSet)):
+		if testSet[i][-1] == predictions[i]:
+			correct += 1
+	return (correct/float(len(testSet))) * 100.0
+
+
+#importing the dataset
+data = pd.read_csv ('/app/Social_Network_Ads.csv')
+dataset = data.iloc [:, [2, 3, 4]].values
+
+parms = EncryptionParameters()
+parms.set_poly_modulus("1x^8192 + 1")
+parms.set_coeff_modulus(seal.coeff_modulus_128(8192))
+parms.set_plain_modulus(1 << 10)
+context = SEALContext(parms)
+#print_parameters(context);
+encoder = IntegerEncoder(context.plain_modulus())
+keygen = KeyGenerator(context)
+public_key = keygen.public_key()
+secret_key = keygen.secret_key()
+encryptor = Encryptor(context, public_key)
+evaluator = Evaluator(context)
+decryptor = Decryptor(context, secret_key)
+encoder = FractionalEncoder(context.plain_modulus(), context.poly_modulus(), 256, 3, 10)
+
+X, Y = splitDataset(dataset, 0.8)
+size = len(X)
+
+encrypted_data = [[Ciphertext(parms) for x in range(2)] for y in range(size)]
+
+print (size)
+print (len(X[0]))
+print (len(Y))
+print (len(encrypted_data))
+print (len(encrypted_data[0]))
+
+for i in range (size):
+	for j in range (2):
+		encryptor.encrypt(encoder.encode(X [i] [j]), encrypted_data [i] [j])
+
+
+summaries = summarizeByClass(encrypted_data)
+predictions = getPredictions(summaries, testSet)
+accuracy = getAccuracy(testSet, predictions)
+print('Accuracy: {0}%').format(accuracy)
 
 
 def example_basics_i():
@@ -251,11 +377,12 @@ def example_basics_i():
 	decryptor = Decryptor(context, secret_key)
 
 	# We start by encoding two integers as plaintext polynomials.
-	value1 = 55;
+	value1 = 15;
+	value2 = 15;
+
 	plain1 = encoder.encode(value1);
 	print("Encoded " + (str)(value1) + " as polynomial " + plain1.to_string() + " (plain1)")
 
-	value2 = -79;
 	plain2 = encoder.encode(value2);
 	print("Encoded " + (str)(value2) + " as polynomial " + plain2.to_string() + " (plain2)")
 
@@ -316,7 +443,8 @@ def example_basics_i():
 
 	# Decode to obtain an integer result.
 	print("Decoded integer: " + (str)(encoder.decode_int32(plain_result)))
-
+	value1 = (int)(encoder.decode_int32(plain_result))
+		
 
 def example_basics_ii():
 	print_example_banner("Example: Basics II")
@@ -630,10 +758,10 @@ def example_weighted_average():
 	decryptor = Decryptor(context, secret_key)
 
 	# Create a vector of 10 rational numbers (as doubles).
-	rational_numbers = [3.1, 4.159, 2.65, 3.5897, 9.3, 2.3, 8.46, 2.64, 3.383, 2.795]
+	rational_numbers = [3000000.2, 4000000, 2000000, 3000000, 90000000, 2000000, 8000000, 2000000, 3000000, 20000000]
 
 	# Create a vector of weights.
-	coefficients = [0.1, 0.05, 0.05, 0.2, 0.05, 0.3, 0.1, 0.025, 0.075, 0.05]
+	coefficients = [1, 6, 5, 2, 9, 3, 1, 2, 1, 0.05]
 
 	# We need a FractionalEncoder to encode the rational numbers into plaintext
 	# polynomials. In this case we decide to reserve 64 coefficients of the
@@ -641,7 +769,7 @@ def example_weighted_average():
 	# part to 32 digits of precision (in base 3) (high-degree terms). These numbers
 	# can be changed according to the precision that is needed; note that these
 	# choices leave a lot of unused space in the 2048-coefficient polynomials.
-	encoder = FractionalEncoder(context.plain_modulus(), context.poly_modulus(), 64, 32, 3)
+	encoder = FractionalEncoder(context.plain_modulus(), context.poly_modulus(), 256, 3, 10)
 
 	# We create a vector of ciphertexts for encrypting the rational numbers.
 	encrypted_rationals = []
@@ -676,7 +804,7 @@ def example_weighted_average():
 	# effect of dividing by 10. Note that in SEAL it is impossible to divide
 	# ciphertext by another ciphertext, but in this way division by a plaintext is
 	# possible.
-	div_by_ten = encoder.encode(0.1)
+	div_by_ten = encoder.encode(0.5)
 
 	# Now compute each multiplication.
 
