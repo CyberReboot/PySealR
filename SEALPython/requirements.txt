@@ -2,3 +2,4 @@ pybind11
 cppimport
 numpy
 pandas
+scikit-learn
